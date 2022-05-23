@@ -4,3 +4,4 @@ discord_bot/config.json
 node_modules/
 .env
 .vscode/
+result/
