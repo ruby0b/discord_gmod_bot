@@ -6,42 +6,23 @@
       url = "github:numtide/flake-utils";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    npmlock2nix = {
-      url = "github:winston0410/npmlock2nix/issue113";
-      flake = false;
-    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, npmlock2nix }:
+  outputs = { self, nixpkgs, flake-utils }:
     (flake-utils.lib.eachDefaultSystem (system:
       let
-        overlays = [
-          (prev: _: { nodejs = prev.nodejs-12_x; })
-        ];
-        config = {
-          permittedInsecurePackages = [ "nodejs-12.22.12" ];
-        };
-        pkgs = import nixpkgs { inherit system overlays config; };
-        nodeLib = pkgs.callPackage ./lib.nix { npmlock2nix = pkgs.callPackage npmlock2nix { }; };
-
-        version = "1.2.0";
-        discord_gmod_bot = (nodeLib.mkNpmPackage {
-          pname = "discord_gmod_bot";
-          inherit version;
-          src = ./.;
-          installPhase = ''
-            mkdir -p $out/bin
-            cp -r . $out
-            echo "#!${pkgs.runtimeShell} -e" >> "$out/bin/discord_gmod_bot"
-            echo "exec ${pkgs.nodejs}/bin/node $out" >> "$out/bin/discord_gmod_bot"
-            chmod +x "$out/bin/discord_gmod_bot"
-          '';
-        });
+        pkgs = import nixpkgs { inherit system; };
+        nodejs = pkgs.nodejs;
+        out = pkgs.callPackage ./default.nix { inherit system pkgs nodejs; };
+        discord_gmod_bot = pkgs.writeShellScriptBin "discord_gmod_bot" ''
+          exec ${nodejs}/bin/node ${out.package}/lib/node_modules/discord_gmod_bot
+        '';
       in
-      {
+      rec {
         packages = { inherit discord_gmod_bot; };
-        defaultPackage = discord_gmod_bot;
-        defaultApp = flake-utils.lib.mkApp { drv = discord_gmod_bot; exePath = "/bin/discord_gmod_bot"; };
+        packages.default = discord_gmod_bot;
+        apps.default = flake-utils.lib.mkApp { drv = discord_gmod_bot; };
+        overlay = _: _: packages;
       }))
     // {
       nixosModules.default = { lib, config, pkgs, ... }:
@@ -85,7 +66,7 @@
               after = [ "network.target" ];
 
               serviceConfig = {
-                ExecStart = self.defaultApp.x86_64-linux.program;
+                ExecStart = "${pkgs.discord_gmod_bot}/bin/discord_gmod_bot";
                 WorkingDirectory = "/var/lib/${cfg.stateDir}";
                 DynamicUser = true;
                 StateDirectory = cfg.stateDir;
