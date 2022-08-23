@@ -226,6 +226,22 @@ requests['sync'] = (params, ret) => {
   );
 };
 
+requests['fetch_all'] = (params, ret) => {
+  var muteStates = {};
+  discordGuild.members.cache.forEach(member => {
+     // append a '#' to prevent conversion to number (float!) in gmod side
+     muteStates["#" + member.id] = member.voice.serverMute
+  });
+  ret({
+    success: true,
+    muteStates: muteStates
+  });
+  log(
+    "[FetchAll][Request]",
+    params
+  );
+}
+
 const keepAliveReq = () => {
   const options = {
     host: KEEPALIVE_HOST,
